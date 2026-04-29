@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ST85 Audience Theme Map</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #141414;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 24px 40px;
+    min-height: 100vh;
+  }
+  #canvas-wrap {
+    width: 100%;
+    max-width: 720px;
+  }
+  svg { display: block; width: 100%; overflow: visible; }
+  #insight-panel {
+    width: 100%;
+    max-width: 720px;
+    min-height: 80px;
+    padding: 16px 20px;
+    border: 0.5px solid transparent;
+    border-radius: 8px;
+    margin-top: 4px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  #insight-panel.active {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
+  }
+  #insight-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  #insight-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: none;
+  }
+  #insight-line {
+    width: 20px; height: 2px;
+    background: #fff;
+    border-radius: 1px;
+    flex-shrink: 0;
+    display: none;
+  }
+  #insight-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  #insight-count {
+    font-size: 12px;
+    color: #555;
+  }
+  #insight-body {
+    font-size: 13px;
+    color: #bbb;
+    line-height: 1.65;
+  }
+  #insight-empty {
+    font-size: 13px;
+    color: #3a3a3a;
+    line-height: 1.65;
+  }
+  #index-box {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 12px;
+    padding: 16px 20px;
+    border: 0.5px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+  }
+  #index-desc {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  #index-items {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .legend-item span {
+    font-size: 11px;
+    color: #555;
+  }
+  .legend-right { margin-left: auto; }
+  .theme-node { cursor: pointer; }
+  .arc-hit { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap">
+  <svg id="map" viewBox="0 0 680 570"></svg>
+</div>
+
+<div id="insight-panel">
+  <div id="insight-header">
+    <div id="insight-dot"></div>
+    <div id="insight-line"></div>
+    <span id="insight-label"></span>
+    <span id="insight-count"></span>
+  </div>
+  <p id="insight-body" style="display:none"></p>
+  <p id="insight-empty">Hover a theme or a connection arc for insight.</p>
+</div>
+
+<div id="index-box">
+  <p id="index-desc">Nine emotional themes across 21,491 messages. Hover any theme or connection arc for the data behind it.</p>
+  <div id="index-items">
+    <div class="legend-item">
+      <svg width="18" height="14"><circle cx="7" cy="7" r="5" fill="transparent" stroke="#555" stroke-width="1"/></svg>
+      <span>Solid border: show signal</span>
+    </div>
+    <div class="legend-item">
+      <svg width="18" height="14"><circle cx="7" cy="7" r="5" fill="transparent" stroke="#555" stroke-width="0.75" stroke-dasharray="3 2"/></svg>
+      <span>Dashed border: format signal</span>
+    </div>
+    <div class="legend-item">
+      <svg width="30" height="14"><line x1="2" y1="7" x2="28" y2="7" stroke="#555" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Arc thickness = overlap strength</span>
+    </div>
+    <div class="legend-item legend-right">
+      <svg width="44" height="14">
+        <circle cx="7" cy="7" r="6" fill="transparent" stroke="#555" stroke-width="0.75"/>
+        <circle cx="30" cy="7" r="4" fill="transparent" stroke="#555" stroke-width="0.75"/>
+      </svg>
+      <span>Node size = message volume</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const G = {
+  yellow:    '#FFB740',
+  lightBlue: '#6BB2D6',
+  green:     '#77C462',
+  pink:      '#E68AAA',
+  red:       '#E05443',
+  darkBlue:  '#3E65B3',
+};
+
+const THEMES = [
+  { id:'excitement', label:'Excitement', messages:1052, cx:252, cy:268, r:66, color:G.yellow,    group:'dominant', insight:"The single largest signal in the campaign. Clap, Pog, LETSGO — this is the audience responding to the show working exactly as intended. Universal across all 14 streams." },
+  { id:'humour',     label:'Humour',     messages:1024, cx:430, cy:268, r:65, color:G.pink,      group:'dominant', insight:"Nearly identical in volume to Excitement. LUL and KEKW dominated. The show's comedy landed as hard as its horror — across every community, without exception." },
+  { id:'fear',       label:'Fear',       messages:447,  cx:252, cy:372, r:43, color:G.red,       group:'horror',   insight:"'Scared' was typed 306 times — more than 'love'. This is reactive horror: the audience naming what they felt after seeing something. The show scared people. That is the point." },
+  { id:'tension',    label:'Tension',    messages:423,  cx:430, cy:372, r:42, color:G.darkBlue,  group:'horror',   insight:"Anticipatory dread. MONKA and 'oh no' arrive before the event. The audience could see danger coming and talked through the tension. This is engaged viewing, not passive watching." },
+  { id:'discovery',  label:'Discovery',  messages:636,  cx:341, cy:108, r:51, color:G.green,     group:'campaign', insight:"636 messages mentioning Netflix, watch intent, or subscription signals — unprompted, across all 14 streams. The show was functioning as an acquisition mechanism during the watch event itself." },
+  { id:'characters', label:'Characters', messages:437,  cx:341, cy:488, r:43, color:G.lightBlue, group:'neutral',  insight:"Present across all 14 streams. Will, Max, Dustin, Nikki. The audience tracked individuals, not just plot. Nikki at 50.5% positive polarity was the standout new character." },
+  { id:'nostalgia',  label:'Nostalgia',  messages:249,  cx:96,  cy:150, r:32, color:G.yellow,    group:'format',   insight:"80s references, the Simpsons quiz, Jaws. The animated format triggered cultural memory in a way live-action rarely does. A format-specific dividend." },
+  { id:'family',     label:'Family',     messages:256,  cx:586, cy:150, r:32, color:G.green,     group:'format',   insight:"256 messages about co-viewing, kids, parents watching together. Small in volume, large in implication. The animated format unlocked an audience use case the live-action series cannot generate." },
+  { id:'interactive',label:'Interactive',messages:283,  cx:586, cy:428, r:33, color:G.lightBlue, group:'format',   insight:"The Gaggl layer — 4,101 guesses, 1,416 players. Tension emotes appeared during quiz questions at the same rate as during horror beats. The quiz created its own engagement register." },
+];
+
+const CONNECTIONS = [
+  { id:'fear-humour',           from:'fear',       to:'humour',      weight:1.0,  label:'Horror-comedy overlap',         insight:"Fear and Humour appeared in the same message across 12 of 14 streams. A viewer typing 'omg scared lmao' in one breath. This is the show's tonal signature operating at the individual message level — not two separate experiences but one fused register." },
+  { id:'characters-excitement', from:'characters', to:'excitement',  weight:0.75, label:'Character moments drove hype',   insight:"The biggest positive spikes in the campaign were character-driven, not action-driven. Max and Nikki appearances triggered Clap and LETSGO responses. The audience cared about people, not just plot." },
+  { id:'discovery-excitement',  from:'discovery',  to:'excitement',  weight:0.6,  label:'Netflix mentioned in warm context', insight:"Netflix appeared in emotionally positive messages — 'W Netflix', 'Thank you Netflix and Gaggl'. The brand was being mentioned in the right emotional register. Discovery is not a neutral signal." },
+  { id:'tension-interactive',   from:'tension',    to:'interactive', weight:0.55, label:'Quiz created its own dread',     insight:"MONKA appeared during Gaggl quiz questions at the same rate as during horror content. Viewers unsure of an answer produced the same anxiety emote as viewers watching a creature attack. The interactive layer extended the show's tension mechanics." },
+];
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('map');
+
+let hoveredNode = null;
+let hoveredArc  = null;
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+function arcPath(a, b, c=0.3) {
+  const mx=(a.cx+b.cx)/2, my=(a.cy+b.cy)/2;
+  const dx=b.cx-a.cx, dy=b.cy-a.cy;
+  const cpx=mx+(-dy*c), cpy=my+(dx*c);
+  return `M ${a.cx} ${a.cy} Q ${cpx} ${cpy} ${b.cx} ${b.cy}`;
+}
+
+function el(tag, attrs={}) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+  return e;
+}
+
+function getTheme(id) { return THEMES.find(t=>t.id===id); }
+
+// --- Build arcs ---
+const arcGroups = {};
+CONNECTIONS.forEach(conn => {
+  const a = getTheme(conn.from), b = getTheme(conn.to);
+  const g = el('g');
+
+  const hit = el('path', { d: arcPath(a,b), fill:'none', stroke:'transparent', 'stroke-width':18 });
+  hit.classList.add('arc-hit');
+
+  const vis = el('path', { d: arcPath(a,b), fill:'none', stroke:'rgba(255,255,255,0.2)', 'stroke-width': conn.weight*2, 'stroke-linecap':'round' });
+  vis.style.transition = 'all 0.2s';
+  vis.style.pointerEvents = 'none';
+
+  const labelG = el('g');
+  labelG.style.pointerEvents = 'none';
+  labelG.style.display = 'none';
+  const mx=(a.cx+b.cx)/2, my=(a.cy+b.cy)/2;
+  const dx=b.cx-a.cx, dy=b.cy-a.cy;
+  const lx=mx+(-dy*0.3)*0.5, ly=my+(dx*0.3)*0.5;
+  const bg = el('rect', { x:lx-70, y:ly-13, width:140, height:22, rx:4, fill:'#141414', opacity:0.9 });
+  const txt = el('text', { x:lx, y:ly+3, 'text-anchor':'middle', fill:'#fff', 'font-size':10, 'letter-spacing':'0.04em', 'font-family':'Helvetica Neue, sans-serif' });
+  txt.textContent = conn.label;
+  labelG.appendChild(bg);
+  labelG.appendChild(txt);
+
+  g.appendChild(hit);
+  g.appendChild(vis);
+  g.appendChild(labelG);
+  svg.appendChild(g);
+
+  hit.addEventListener('mouseenter', () => { hoveredArc=conn.id; hoveredNode=null; update(); });
+  hit.addEventListener('mouseleave', () => { hoveredArc=null; update(); });
+
+  arcGroups[conn.id] = { vis, labelG, conn };
+});
+
+// --- Build nodes ---
+const nodeGroups = {};
+THEMES.forEach(t => {
+  const g = el('g');
+  g.classList.add('theme-node');
+
+  const pulse = el('circle', { cx:t.cx, cy:t.cy, r:t.r+10, fill:'none', stroke:t.color, 'stroke-width':0.5, opacity:0.25 });
+  pulse.style.display = 'none';
+
+  const rgb = hexToRgb(t.color);
+  const circle = el('circle', {
+    cx:t.cx, cy:t.cy, r:t.r,
+    fill:`rgba(${rgb},0.1)`,
+    stroke:t.color,
+    'stroke-width': t.group==='format' ? 0.75 : 1,
+    'stroke-dasharray': t.group==='format' ? '4 3' : 'none',
+  });
+  circle.style.transition = 'all 0.2s';
+
+  const fs = t.r>50 ? 13 : t.r>40 ? 12 : 11;
+  const label = el('text', { x:t.cx, y:t.cy-(t.r>50?8:6), 'text-anchor':'middle', fill:'#fff', 'font-size':fs, 'font-weight':600, 'font-family':'Helvetica Neue, sans-serif' });
+  label.style.pointerEvents = 'none';
+  label.style.transition = 'opacity 0.2s';
+  label.textContent = t.label;
+
+  const cfs = t.r>50 ? 11 : 10;
+  const count = el('text', { x:t.cx, y:t.cy+(t.r>50?10:8), 'text-anchor':'middle', fill:`rgba(${rgb},0.9)`, 'font-size':cfs, 'font-family':'Helvetica Neue, sans-serif' });
+  count.style.pointerEvents = 'none';
+  count.style.transition = 'opacity 0.2s';
+  count.textContent = t.messages.toLocaleString();
+
+  g.appendChild(pulse);
+  g.appendChild(circle);
+  g.appendChild(label);
+  g.appendChild(count);
+  svg.appendChild(g);
+
+  g.addEventListener('mouseenter', () => { hoveredNode=t.id; hoveredArc=null; update(); });
+  g.addEventListener('mouseleave', () => { hoveredNode=null; update(); });
+
+  nodeGroups[t.id] = { circle, pulse, label, count, theme:t };
+});
+
+// --- Update visual state ---
+function update() {
+  const connectedIds = hoveredNode
+    ? CONNECTIONS.filter(c=>c.from===hoveredNode||c.to===hoveredNode).flatMap(c=>[c.from,c.to])
+    : [];
+
+  // Arcs
+  for (const [id, {vis, labelG, conn}] of Object.entries(arcGroups)) {
+    const isHovArc = hoveredArc === id;
+    const isRelated = hoveredNode && (conn.from===hoveredNode||conn.to===hoveredNode);
+    const dimmed = (hoveredNode&&!isRelated)||(hoveredArc&&!isHovArc);
+    const highlighted = isHovArc||isRelated;
+
+    vis.setAttribute('stroke', isHovArc ? '#fff' : isRelated ? '#ccc' : 'rgba(255,255,255,0.2)');
+    vis.setAttribute('stroke-width', conn.weight*(highlighted?3.5:2));
+    vis.setAttribute('opacity', dimmed?0.08:highlighted?1:0.35);
+    labelG.style.display = isHovArc ? 'block' : 'none';
+  }
+
+  // Nodes
+  for (const [id, {circle, pulse, label, count, theme:t}] of Object.entries(nodeGroups)) {
+    const isHov = hoveredNode===id;
+    const isConn = connectedIds.includes(id);
+    const dimmed = (hoveredNode&&!isHov&&!isConn)||(hoveredArc&&!CONNECTIONS.find(c=>c.id===hoveredArc&&(c.from===id||c.to===id)));
+    const rgb = hexToRgb(t.color);
+
+    pulse.style.display = isHov ? 'block' : 'none';
+    circle.setAttribute('fill', `rgba(${rgb},${isHov?0.22:0.1})`);
+    circle.setAttribute('stroke-width', isHov?1.5:t.group==='format'?0.75:1);
+    circle.setAttribute('opacity', dimmed?0.2:1);
+    label.setAttribute('fill', dimmed?'rgba(255,255,255,0.15)':'#fff');
+    count.setAttribute('fill', dimmed?`rgba(${rgb},0.15)`:`rgba(${rgb},0.9)`);
+  }
+
+  // Insight panel
+  const panel = document.getElementById('insight-panel');
+  const dot   = document.getElementById('insight-dot');
+  const line  = document.getElementById('insight-line');
+  const lbl   = document.getElementById('insight-label');
+  const cnt   = document.getElementById('insight-count');
+  const body  = document.getElementById('insight-body');
+  const empty = document.getElementById('insight-empty');
+
+  if (hoveredNode) {
+    const t = THEMES.find(x=>x.id===hoveredNode);
+    panel.classList.add('active');
+    dot.style.display='block'; dot.style.background=t.color;
+    line.style.display='none';
+    lbl.textContent=t.label; lbl.style.color=t.color;
+    cnt.textContent=t.messages.toLocaleString()+' messages';
+    body.textContent=t.insight; body.style.display='block';
+    empty.style.display='none';
+  } else if (hoveredArc) {
+    const c = CONNECTIONS.find(x=>x.id===hoveredArc);
+    panel.classList.add('active');
+    dot.style.display='none';
+    line.style.display='block';
+    lbl.textContent=c.label; lbl.style.color='#fff';
+    cnt.textContent='';
+    body.textContent=c.insight; body.style.display='block';
+    empty.style.display='none';
+  } else {
+    panel.classList.remove('active');
+    dot.style.display='none'; line.style.display='none';
+    lbl.textContent=''; cnt.textContent='';
+    body.style.display='none';
+    empty.style.display='block';
+  }
+}
+
+update();
+</script>
+</body>
+</html>
